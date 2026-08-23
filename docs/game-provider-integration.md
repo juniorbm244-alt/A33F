@@ -1,58 +1,101 @@
 # A33F — Integração de Provedores de Jogos
 
-## Estado atual
+## Modos
 
-A integração permanece em `mock`/`sandbox`. Nenhum jogo ou transação financeira real é processado.
+A A33F possui dois modos de jogo:
 
-## Arquitetura
+- `demo`: ativo com o provedor `mock`, sem dinheiro real.
+- `real`: implementado como fluxo protegido, mas bloqueado até que todos os gates técnicos, regulatórios e de provedor estejam concluídos.
 
-- `GET /api/games` — catálogo normalizado de jogos.
-- `POST /api/games/launch` — cria sessão e devolve `launchUrl`.
-- `POST /api/games/callback` — endpoint genérico para callbacks assinados do provedor.
-- `lib/games/types.ts` — contrato interno estável da A33F.
-- `lib/games/registry.ts` — seleciona o adaptador ativo via `GAME_PROVIDER`.
-- `lib/games/mock-provider.ts` — provedor de demonstração.
+## Rotas
 
-## Dados necessários de um provedor/agregador
+- `GET /api/games` — catálogo normalizado.
+- `POST /api/games/launch` — abre sessão demo ou real.
+- `GET /api/games/real-readiness` — mostra os gates de produção pendentes sem revelar segredos.
+- `POST /api/games/callback` — recebe eventos assinados do provedor.
 
-1. URL base de sandbox e produção.
-2. API key/client id/client secret ou método equivalente.
-3. Documentação do catálogo de jogos.
-4. Documentação de criação de sessão/launch URL.
-5. Formato de callback/webhook e mecanismo de assinatura.
-6. Lista de IPs para allowlist, quando aplicável.
-7. Política de idempotência e identificadores de transação.
-8. Fluxo de bet, win, refund/rollback e reconciliação.
-9. Catálogo com país, moeda, idioma, dispositivo e disponibilidade por jogo.
-10. Evidências de certificação e liberação dos jogos aplicáveis ao mercado em que a A33F operar.
+## Segurança do modo real
 
-## Requisitos antes de ativar `production`
+O `mode=real` nunca confia em `playerId`, KYC, idade, geolocalização ou autoexclusão enviados pelo navegador.
 
-- Operador autorizado para a jurisdição aplicável.
-- Contrato ativo com provedor/agregador autorizado para atender a operação.
-- Jogos certificados e aprovados conforme exigências regulatórias aplicáveis.
-- Persistência transacional em banco de dados.
-- Ledger imutável e reconciliação financeira.
-- Idempotência persistente para callbacks e transações.
-- Autenticação real do jogador; nunca confiar em `playerId` enviado pelo cliente.
-- Validação de idade, KYC/AML e regras de impedimento aplicáveis.
-- Limites, autoexclusão, jogo responsável e controles de risco.
-- Webhooks assinados com proteção contra replay.
-- Segredos somente no backend/secret manager da hospedagem.
-- Observabilidade, auditoria e alertas.
+Para jogo real, o endpoint exige uma sessão de jogador assinada pelo backend usando HMAC-SHA256. A sessão contém somente claims de elegibilidade, sem CPF, imagem facial ou outros dados biométricos brutos.
 
-## Variáveis
+Claims mínimas verificadas:
+
+- identidade/KYC confirmado;
+- maioridade confirmada;
+- biometria confirmada;
+- ausência de autoexclusão específica e centralizada;
+- ausência de impedimento;
+- geolocalização válida no Brasil e verificada nos últimos 30 minutos;
+- limite de perda configurado;
+- limite de tempo configurado;
+- aceite de jogo responsável.
+
+## Gates de produção
+
+`GET /api/games/real-readiness` exige simultaneamente:
+
+- integração de código real revisada (`REAL_MONEY_CODE_READY`);
+- `REAL_MONEY_MODE_ENABLED=true`;
+- operador autorizado;
+- domínio de marca `.bet.br`;
+- provedor real selecionado e em produção;
+- credenciais e webhook do provedor;
+- sessão assinada do jogador;
+- banco transacional persistente;
+- ledger imutável/persistente;
+- carteira real;
+- KYC/idade/biometria;
+- geolocalização de produção;
+- autoexclusão centralizada e específica;
+- verificação de pessoas impedidas;
+- AML;
+- limites prudenciais obrigatórios;
+- bloqueio de jogos não certificados.
+
+As variáveis de ambiente, sozinhas, não liberam dinheiro real. `REAL_MONEY_CODE_READY` fica `false` em código até que o adaptador real do provedor e o ledger idempotente sejam implementados e revisados.
+
+## Callback financeiro
+
+O callback valida assinatura HMAC e payload. Em `sandbox`, nenhum dinheiro real é movimentado. Em `production`, callbacks são bloqueados enquanto o readiness não estiver completo.
+
+Antes de habilitar `REAL_MONEY_CODE_READY`, o callback deverá gravar `bet`, `win` e `rollback` de forma idempotente no ledger persistente e somente responder sucesso depois da confirmação transacional.
+
+## Integração com provedor
+
+Cada fornecedor deve implementar `GameProviderAdapter`. A interface da A33F permanece estável e a lógica específica do fornecedor fica isolada no backend.
+
+O provedor/agregador deve entregar:
+
+1. endpoints de sandbox e produção;
+2. credenciais de servidor;
+3. catálogo de jogos;
+4. launch/session API;
+5. callbacks de bet/win/refund/rollback;
+6. assinatura de callbacks e política de replay;
+7. idempotência e reconciliação;
+8. disponibilidade por país/moeda/dispositivo;
+9. evidência de certificação e liberação dos jogos para a operação.
+
+## Variáveis principais
 
 ```env
 GAME_PROVIDER=mock
 GAME_PROVIDER_MODE=sandbox
-GAME_PROVIDER_BASE_URL=
-GAME_PROVIDER_API_KEY=
-GAME_PROVIDER_WEBHOOK_SECRET=
+REAL_MONEY_MODE_ENABLED=false
+BETTING_OPERATOR_AUTHORIZED=false
+BETTING_OPERATOR_BRAND_DOMAIN=
+A33F_PLAYER_SESSION_SECRET=
+LEDGER_MODE=sandbox
+WALLET_MODE=sandbox
+KYC_MODE=sandbox
+GEOLOCATION_MODE=sandbox
+SELF_EXCLUSION_MODE=sandbox
+PROHIBITED_PERSONS_CHECK_MODE=sandbox
+AML_MODE=sandbox
+RESPONSIBLE_GAMING_LIMITS_REQUIRED=false
+GAME_CERTIFICATION_ENFORCED=false
 ```
 
-## Regra de segurança
-
-Enquanto `GAME_PROVIDER=mock` ou `GAME_PROVIDER_MODE` for diferente de `production`, a A33F não habilita `mode=real` no endpoint de launch.
-
-Ao adicionar um provedor real, crie um novo adaptador implementando `GameProviderAdapter`; não coloque lógica específica do fornecedor nas páginas da interface.
+Nunca commitar segredos reais no repositório. Use o secret manager da hospedagem.
