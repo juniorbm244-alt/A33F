@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { paymentGateway } from '@/lib/payments/sandbox-gateway';
+import { savePayment } from '@/lib/payments/store';
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -16,5 +17,6 @@ export async function POST(request: Request) {
     idempotencyKey: String(body.idempotencyKey ?? crypto.randomUUID()),
   });
 
-  return NextResponse.json(payment, { status: 201 });
+  savePayment(payment);
+  return NextResponse.json({ sandbox: true, payment }, { status: 201 });
 }
