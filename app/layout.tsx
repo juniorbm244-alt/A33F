@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './casino.css';
+import './auth-casino.css';
 
 export const metadata: Metadata = {
-  title: 'A33F — Sua experiência, seu ritmo',
-  description: 'A33F — experiência digital moderna e mobile-first.'
+  title: 'A33F — Cassino & Entretenimento',
+  description: 'A33F — plataforma mobile-first de cassino e entretenimento em desenvolvimento.'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
