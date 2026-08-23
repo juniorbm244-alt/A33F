@@ -1,22 +1,34 @@
-export type PaymentStatus = 'created' | 'pending' | 'paid' | 'failed' | 'refunded';
+export type PaymentStatus = 'created' | 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled';
 
-export interface PaymentRequest {
+export interface CreatePaymentInput {
+  amountCents: number;
+  currency?: 'BRL';
+  customerId: string;
+  description: string;
+  idempotencyKey?: string;
+}
+
+export interface PaymentRequest extends CreatePaymentInput {
+  currency: 'BRL';
+  idempotencyKey: string;
+}
+
+export interface Payment {
+  id: string;
+  status: PaymentStatus;
   amountCents: number;
   currency: 'BRL';
   customerId: string;
   description: string;
-  idempotencyKey: string;
-}
-
-export interface PaymentResponse {
-  id: string;
-  status: PaymentStatus;
-  amountCents: number;
-  sandbox: boolean;
+  idempotencyKey?: string;
+  createdAt: string;
+  sandbox: true;
   checkoutUrl?: string;
 }
 
+export type PaymentResponse = Payment;
+
 export interface PaymentGateway {
-  createPayment(request: PaymentRequest): Promise<PaymentResponse>;
-  getPayment(id: string): Promise<PaymentResponse>;
+  createPayment(request: CreatePaymentInput): Promise<Payment>;
+  getPayment(id: string): Promise<Payment | null>;
 }
