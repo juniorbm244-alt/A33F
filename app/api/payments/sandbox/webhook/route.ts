@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { updateSandboxLedgerStatus } from '@/lib/payments/sandbox-ledger';
 import { updatePaymentStatus } from '@/lib/payments/store';
 import type { PaymentStatus } from '@/lib/payments/types';
 
@@ -16,5 +17,6 @@ export async function POST(request: Request) {
   const payment = updatePaymentStatus(paymentId, status);
   if (!payment) return NextResponse.json({ error: 'Payment not found.' }, { status: 404 });
 
+  updateSandboxLedgerStatus(paymentId, status);
   return NextResponse.json({ sandbox: true, payment });
 }
