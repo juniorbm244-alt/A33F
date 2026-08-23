@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { paymentGateway } from '@/lib/payments/sandbox-gateway';
+import { recordSandboxPayment } from '@/lib/payments/sandbox-ledger';
 import { savePayment } from '@/lib/payments/store';
 
 export async function POST(request: Request) {
@@ -18,5 +19,6 @@ export async function POST(request: Request) {
   });
 
   savePayment(payment);
+  recordSandboxPayment(payment);
   return NextResponse.json({ sandbox: true, payment }, { status: 201 });
 }
