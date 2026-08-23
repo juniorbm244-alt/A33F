@@ -1,5 +1,6 @@
 import type { GameProviderAdapter } from './types';
 import { MockGameProvider } from './mock-provider';
+import { getRealMoneyReadiness } from './real-readiness';
 
 const mockProvider = new MockGameProvider();
 
@@ -12,5 +13,5 @@ export function getGameProvider(): GameProviderAdapter {
 }
 
 export function isRealGameModeEnabled() {
-  return process.env.GAME_PROVIDER_MODE === 'production' && process.env.GAME_PROVIDER !== 'mock';
+  return getRealMoneyReadiness().ready;
 }
