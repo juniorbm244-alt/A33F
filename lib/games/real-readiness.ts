@@ -4,8 +4,9 @@ export interface ReadinessCheck {
   label: string;
 }
 
-// Deliberately false until a real provider adapter and persistent real-money ledger
-// are implemented and reviewed. Environment variables alone cannot bypass this gate.
+// Deliberately false until the contracted aggregator adapter and persistent
+// real-money ledger are implemented and reviewed. Environment variables alone
+// cannot bypass this gate.
 export const REAL_MONEY_CODE_READY = false;
 
 function yes(value: string | undefined) {
@@ -17,19 +18,19 @@ function production(value: string | undefined) {
 }
 
 export function getRealMoneyReadiness() {
-  const provider = (process.env.GAME_PROVIDER ?? 'mock').trim().toLowerCase();
+  const integration = (process.env.GAME_INTEGRATION ?? 'mock').trim().toLowerCase();
   const domain = (process.env.BETTING_OPERATOR_BRAND_DOMAIN ?? '').trim().toLowerCase();
 
   const checks: ReadinessCheck[] = [
-    { id: 'code_integration', ready: REAL_MONEY_CODE_READY, label: 'Real provider adapter and persistent ledger reviewed' },
+    { id: 'code_integration', ready: REAL_MONEY_CODE_READY, label: 'Contracted aggregator adapter and persistent ledger reviewed' },
     { id: 'explicit_enable', ready: yes(process.env.REAL_MONEY_MODE_ENABLED), label: 'Real-money mode explicitly enabled' },
     { id: 'operator_authorized', ready: yes(process.env.BETTING_OPERATOR_AUTHORIZED), label: 'Operator authorization confirmed' },
     { id: 'bet_br_domain', ready: domain.endsWith('.bet.br'), label: 'Authorized .bet.br brand domain configured' },
-    { id: 'provider_selected', ready: provider !== 'mock' && provider.length > 0, label: 'Non-mock game provider selected' },
-    { id: 'provider_production', ready: production(process.env.GAME_PROVIDER_MODE), label: 'Game provider in production mode' },
-    { id: 'provider_base_url', ready: Boolean(process.env.GAME_PROVIDER_BASE_URL), label: 'Game provider production URL configured' },
-    { id: 'provider_api_key', ready: Boolean(process.env.GAME_PROVIDER_API_KEY), label: 'Game provider credential configured' },
-    { id: 'provider_webhook_secret', ready: Boolean(process.env.GAME_PROVIDER_WEBHOOK_SECRET), label: 'Provider webhook signature secret configured' },
+    { id: 'aggregator_selected', ready: integration === 'aggregator', label: 'Single game aggregator selected' },
+    { id: 'aggregator_production', ready: production(process.env.AGGREGATOR_MODE), label: 'Aggregator in production mode' },
+    { id: 'aggregator_base_url', ready: Boolean(process.env.AGGREGATOR_BASE_URL), label: 'Aggregator production URL configured' },
+    { id: 'aggregator_api_key', ready: Boolean(process.env.AGGREGATOR_API_KEY), label: 'Aggregator production credential configured' },
+    { id: 'aggregator_webhook_secret', ready: Boolean(process.env.AGGREGATOR_WEBHOOK_SECRET), label: 'Aggregator callback signature secret configured' },
     { id: 'player_session_secret', ready: (process.env.A33F_PLAYER_SESSION_SECRET ?? '').length >= 32, label: 'Signed player session configured' },
     { id: 'database', ready: Boolean(process.env.DATABASE_URL), label: 'Persistent transactional database configured' },
     { id: 'ledger', ready: process.env.LEDGER_MODE === 'persistent', label: 'Persistent immutable ledger enabled' },
