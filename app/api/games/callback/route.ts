@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyProviderSignature } from '@/lib/games/signature';
+import { getRealMoneyReadiness } from '@/lib/games/real-readiness';
 import type { ProviderCallbackPayload } from '@/lib/games/types';
 
 const allowedEvents = new Set([
@@ -12,6 +13,7 @@ const allowedEvents = new Set([
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get('x-game-signature');
+  const productionMode = process.env.GAME_PROVIDER_MODE === 'production';
 
   if (!process.env.GAME_PROVIDER_WEBHOOK_SECRET) {
     return NextResponse.json(
@@ -44,12 +46,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid callback payload.' }, { status: 400 });
   }
 
-  // Intentionally no real-money ledger mutation here.
-  // Provider-specific transaction processing will be added only after
-  // authorization, certification, idempotency and persistent ledger are ready.
+  if (payload.amountCents !== undefined && (!Number.isInteger(payload.amountCents) || payload.amountCents < 0)) {
+    return NextResponse.json({ error: 'Invalid callback amount.' }, { status: 400 });
+  }
+
+  if (payload.currency !== undefined && payload.currency !== 'BRL') {
+    return NextResponse.json({ error: 'Unsupported callback currency.' }, { status: 400 });
+  }
+
+  if (productionMode) {
+    const readiness = getRealMoneyReadiness();
+    if (!readiness.ready) {
+      return NextResponse.json(
+        { error: 'Real-money callback processing is blocked.', code: 'REAL_MODE_NOT_READY', missing: readiness.missing },
+        { status: 503 },
+      );
+    }
+  }
+
+  // Sandbox acknowledges signed events without moving real funds.
+  // When REAL_MONEY_CODE_READY is reviewed and enabled, this handler must
+  // write idempotently to the persistent immutable ledger before acknowledging.
   return NextResponse.json({
     accepted: true,
-    sandbox: true,
+    sandbox: !productionMode,
     eventId: payload.eventId,
     event: payload.event,
   });
