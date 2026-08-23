@@ -13,11 +13,11 @@ const allowedEvents = new Set([
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get('x-game-signature');
-  const productionMode = process.env.GAME_PROVIDER_MODE === 'production';
+  const productionMode = process.env.AGGREGATOR_MODE === 'production';
 
-  if (!process.env.GAME_PROVIDER_WEBHOOK_SECRET) {
+  if (!process.env.AGGREGATOR_WEBHOOK_SECRET) {
     return NextResponse.json(
-      { error: 'Provider callback is not configured.', code: 'WEBHOOK_SECRET_MISSING' },
+      { error: 'Aggregator callback is not configured.', code: 'WEBHOOK_SECRET_MISSING' },
       { status: 503 },
     );
   }
@@ -39,7 +39,6 @@ export async function POST(request: Request) {
     typeof payload.eventId !== 'string' ||
     typeof payload.event !== 'string' ||
     !allowedEvents.has(payload.event) ||
-    typeof payload.provider !== 'string' ||
     typeof payload.playerId !== 'string' ||
     typeof payload.gameId !== 'string'
   ) {
@@ -64,9 +63,9 @@ export async function POST(request: Request) {
     }
   }
 
-  // Sandbox acknowledges signed events without moving real funds.
-  // When REAL_MONEY_CODE_READY is reviewed and enabled, this handler must
-  // write idempotently to the persistent immutable ledger before acknowledging.
+  // Sandbox acknowledges signed aggregator events without moving real funds.
+  // Production must write idempotently to the persistent immutable ledger
+  // before acknowledging bet/win/rollback events.
   return NextResponse.json({
     accepted: true,
     sandbox: !productionMode,
