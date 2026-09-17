@@ -9,9 +9,11 @@ export default function CarteiraPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [amount, setAmount] = useState('50');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
   async function refresh() {
-    const response = await fetch('/api/wallet/sandbox?customerId=sandbox-user', { cache: 'no-store' });
+    const response = await fetch('/api/wallet/sandbox', { cache: 'no-store' });
+    if (response.status === 401) { setMessage('Faça login para acessar sua carteira.'); return; }
     if (!response.ok) return;
     const data = await response.json();
     setBalance(data.balanceCents ?? 0);
@@ -22,27 +24,28 @@ export default function CarteiraPage() {
 
   async function deposit() {
     const reais = Number(amount.replace(',', '.'));
-    if (!Number.isFinite(reais) || reais <= 0) return;
-    setLoading(true);
+    if (!Number.isFinite(reais) || reais <= 0) { setMessage('Informe um valor válido.'); return; }
+    setLoading(true); setMessage('');
     try {
-      await fetch('/api/payments/sandbox', {
+      const response = await fetch('/api/payments/sandbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountCents: Math.round(reais * 100), customerId: 'sandbox-user', description: 'A33F sandbox deposit', idempotencyKey: crypto.randomUUID() }),
+        body: JSON.stringify({ amountCents: Math.round(reais * 100), description: 'A33F sandbox deposit', idempotencyKey: crypto.randomUUID() }),
       });
+      if (!response.ok) { const data = await response.json().catch(() => null); setMessage(data?.error ?? 'Não foi possível processar.'); return; }
       await refresh();
     } finally { setLoading(false); }
   }
 
   return (
     <main className="dashboard-page">
-      <header className="header"><a className="logo" href="/">A33F<span>•</span></a><nav><a href="/">Início</a><a href="/painel">Painel</a><a href="/carteira">Carteira</a></nav><a className="ghost" href="/painel">Voltar</a></header>
-      <section className="dashboard-hero"><div><span className="eyebrow">CARTEIRA • SANDBOX</span><h1>Seu saldo de teste</h1><p>Ambiente de demonstração. Nenhum valor aqui representa dinheiro real.</p></div><div className="profile-badge">A3</div></section>
+      <header className="header"><a className="logo" href="/">A33F<span>•</span></a><nav><a href="/">Início</a><a href="/painel">Painel</a><a href="/carteira">Carteira</a></nav><a className="ghost" href="/login">Entrar</a></header>
+      <section className="dashboard-hero"><div><span className="eyebrow">CARTEIRA • SANDBOX</span><h1>Sua carteira</h1><p>Ambiente de demonstração. Nenhum valor aqui representa dinheiro real.</p></div><div className="profile-badge">A3</div></section>
       <section className="dashboard-content">
-        <article className="panel-card"><span className="eyebrow">SALDO DISPONÍVEL</span><div className="wallet-balance">R$ {(balance / 100).toFixed(2).replace('.', ',')}</div><p className="muted">BRL • ambiente sandbox</p><div className="deposit-row"><input aria-label="Valor do depósito" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal"/><button className="primary large" onClick={deposit} disabled={loading}>{loading ? 'Processando...' : 'Depositar teste'}</button></div></article>
+        <article className="panel-card"><span className="eyebrow">SALDO DISPONÍVEL</span><div className="wallet-balance">R$ {(balance / 100).toFixed(2).replace('.', ',')}</div><p className="muted">BRL • ambiente sandbox</p><div className="deposit-row"><input aria-label="Valor do depósito" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal"/><button className="primary large" onClick={deposit} disabled={loading}>{loading ? 'Processando...' : 'Depositar teste'}</button></div>{message && <p className="casino-auth-message">{message}</p>}</article>
         <article className="panel-card"><div className="section-head"><div><span className="eyebrow">HISTÓRICO</span><h2>Transações</h2></div></div>{entries.length === 0 ? <p className="muted empty">Nenhuma transação de teste ainda.</p> : <div className="activity-list">{entries.map((entry) => <div key={entry.id}><span className="activity-dot"/><div><strong>Depósito • R$ {(entry.amountCents / 100).toFixed(2).replace('.', ',')}</strong><small>{entry.status} • {new Date(entry.createdAt).toLocaleString('pt-BR')}</small></div></div>)}</div>}</article>
       </section>
-      <nav className="bottom-nav"><a href="/">⌂<span>Início</span></a><a href="/painel">◉<span>Painel</span></a><a href="/carteira">▣<span>Carteira</span></a><a href="#">◌<span>Conta</span></a></nav>
+      <nav className="bottom-nav"><a href="/">⌂<span>Início</span></a><a href="/painel">◉<span>Painel</span></a><a href="/carteira">▣<span>Carteira</span></a><a href="/login">◌<span>Conta</span></a></nav>
     </main>
   );
 }
